@@ -15,12 +15,12 @@ jobs:
       mysql:
         image: mysql:8.0.29
         env:
-          MYSQL_ROOT_PASSWORD: supersecretsqlpassword
+          MYSQL_ROOT_PASSWORD: tempdbpassword
           MYSQL_DATABASE: pizza
         ports:
           - "3306:3306"
         options: >-
-          --health-cmd "mysqladmin ping -psupersecretsqlpassword"
+          --health-cmd "mysqladmin ping -ptempdbpassword"
           --health-interval 10s
           --health-start-period 10s
           --health-timeout 5s
@@ -39,7 +39,7 @@ jobs:
 
       - name: Lint
         run: npm run lint
-      
+
       - name: Write config file
         run: |
           echo "module.exports = {
@@ -48,7 +48,7 @@ jobs:
               connection: {
                 host: '127.0.0.1',
                 user: 'root',
-                password: 'supersecretsqlpassword',
+                password: 'tempdbpassword',
                 database: 'pizza',
                 connectTimeout: 60000,
               },
@@ -57,19 +57,19 @@ jobs:
             factory: {
               url: 'https://pizza-factory.cs329.click',
               apiKey: '${{ secrets.FACTORY_API_KEY }}',
-              },
-            };" > src/config.js
-      
+            },
+          };" > src/config.js
+
       - name: Tests
         run: npm test
-      
+
       - name: set version
         id: set_version
         run: |
           version=$(date +'%Y%m%d.%H%M%S')
           echo "version=$version" >> "$GITHUB_OUTPUT"
           printf '{"version": "%s" }' "$version" > src/version.json
-      
+
       - name: Update coverage
         run: |
           coverage_pct=$(grep -o '"pct":[0-9.]*' coverage/coverage-summary.json | head -n 1 | cut -d ':' -f 2)
