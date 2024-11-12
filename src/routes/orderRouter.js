@@ -3,6 +3,7 @@ const config = require('../config.js');
 const { Role, DB } = require('../database/database.js');
 const { authRouter } = require('./authRouter.js');
 const { asyncHandler, StatusCodeError } = require('../endpointHelper.js');
+const metrics = require('../metrics.js');
 
 const orderRouter = express.Router();
 
@@ -39,6 +40,28 @@ orderRouter.endpoints = [
     response: { order: { franchiseId: 1, storeId: 1, items: [{ menuId: 1, description: 'Veggie', price: 0.05 }], id: 1 }, jwt: '1111111111' },
   },
 ];
+
+// Purchase metrics
+let lastOrder;
+orderRouter.use((req, res, next) => {
+  if (req.method === 'POST') {
+    const startTime = Date.now();
+    res.on('finish', () => {
+      metrics.incrementPizzaPurchases();
+      if (res.statusCode === 500) {
+        metrics.incrementPizzaFailures();
+        return;
+      }
+      const endTime = Date.now();
+      metrics.addPizzaLatency(endTime - startTime);
+
+      // Calculate revenue
+      const addedRevenue = lastOrder?.items.reduce((sum, item) => sum + item.price, 0) || 0;
+      metrics.increaseRevenue(addedRevenue);
+    })
+  }
+  next();
+});
 
 // getMenu
 orderRouter.get(
@@ -86,6 +109,7 @@ orderRouter.post(
     });
     const j = await r.json();
     if (r.ok) {
+      lastOrder = order;
       res.send({ order, jwt: j.jwt, reportUrl: j.reportUrl });
     } else {
       res.status(500).send({ message: 'Failed to fulfill order at factory', reportUrl: j.reportUrl });

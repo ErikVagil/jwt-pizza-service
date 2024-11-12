@@ -3,6 +3,7 @@ const jwt = require('jsonwebtoken');
 const config = require('../config.js');
 const { asyncHandler } = require('../endpointHelper.js');
 const { DB, Role } = require('../database/database.js');
+const metrics = require('../metrics.js');
 
 const authRouter = express.Router();
 
@@ -62,6 +63,27 @@ authRouter.authenticateToken = (req, res, next) => {
   }
   next();
 };
+
+// Active user metrics
+authRouter.use((req, res, next) => {
+  if (req.method === 'POST' || 
+      (req.method === 'PUT' && req.path === '/')) {
+    res.on('finish', () => {
+      // Only increment active users if successfully logged in
+      const isStatus200s = (res.statusCode / 100).toFixed(0) == 2
+      if (isStatus200s) {
+        metrics.incrementTotalUsers();
+        metrics.incrementAuthSuccess();
+      } else {
+        metrics.incrementAuthFailure();
+      }
+    });
+  }
+  if (req.method === 'DELETE') {
+    metrics.decrementTotalUsers();
+  }
+  next();
+});
 
 // register
 authRouter.post(
