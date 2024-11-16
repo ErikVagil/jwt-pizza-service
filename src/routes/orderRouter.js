@@ -4,6 +4,7 @@ const { Role, DB } = require('../database/database.js');
 const { authRouter } = require('./authRouter.js');
 const { asyncHandler, StatusCodeError } = require('../endpointHelper.js');
 const metrics = require('../metrics.js');
+const Logger = require('pizza-logger');
 
 const orderRouter = express.Router();
 
@@ -96,6 +97,7 @@ orderRouter.get(
 );
 
 // createOrder
+const logger = new Logger(config);
 orderRouter.post(
   '/',
   authRouter.authenticateToken,
@@ -107,6 +109,7 @@ orderRouter.post(
       headers: { 'Content-Type': 'application/json', authorization: `Bearer ${config.factory.apiKey}` },
       body: JSON.stringify({ diner: { id: req.user.id, name: req.user.name, email: req.user.email }, order }),
     });
+    logger.factoryLogger({ diner: { id: req.user.id, name: req.user.name, email: req.user.email }, order });
     const j = await r.json();
     if (r.ok) {
       lastOrder = order;
